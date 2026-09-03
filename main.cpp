@@ -1,30 +1,42 @@
 #include <iostream>
-#include<filesystem>
+#include <filesystem>
 using namespace std;
 namespace fs = std::filesystem;
 
-int main(){
-    cout<<"============================="<<endl;
-    cout<<"     |PC GUARDIAN v1.0|  "<<endl;
-    cout<<"============================="<<endl;
-    cout<<"ENTER DIRECTORY PATH : ";
+int main()
+{
+    cout << "=============================" << endl;
+    cout << "      |PC GUARDIAN v1.0|     " << endl;
+    cout << "=============================" << endl;
+    cout << "ENTER DIRECTORY PATH : ";
     string path;
-    getline(cin,path);
+    getline(cin, path);
     fs::directory_entry Directory{path};
-    if(Directory.exists()){
-        if(Directory.is_directory()){
-            cout<<"ITS A FOLDER DIRECTORY"<<endl;
+
+    if (Directory.exists())
+    {
+        if (Directory.is_directory())
+        {
+            cout << "ITS A FOLDER DIRECTORY" << endl;
+            for (const auto &entry : fs::directory_iterator(path))
+            {
+                cout << entry.path().filename() << endl;
+            }
         }
-        else if(Directory.is_regular_file()){
-            cout<<"ITS A FILE DIRECTORY"<<endl;
+        else if (Directory.is_regular_file())
+        {
+            cout << "ITS A FILE PATH" << endl;
         }
-        else{
-            cout<<"SOMETHING WENT WRONG!!"<<endl;
+        else
+        {
+            cout << "SOMETHING WENT WRONG!!" << endl;
         }
     }
-    else{
-        cout<<"DIRECTORY DOES NOT EXIST!!"<<endl;
+
+    else
+    {
+        cout << "DIRECTORY DOES NOT EXIST!!" << endl;
     }
-    cout<<"YOUR PATH :  "<<path<<endl;
+    cout << "YOUR PATH :  " << path << endl;
     return 0;
 }
