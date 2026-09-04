@@ -20,8 +20,14 @@ int main()
             cout << "ITS A FOLDER DIRECTORY" << endl;
             for (const auto &entry : fs::directory_iterator(path))
             {
-                cout << entry.path().filename() << endl;
-            }
+                if(entry.is_regular_file()){
+                    cout << "THE FILE NAME IS : " <<entry.path().filename() << endl;
+                    cout <<"EXTENSION : "<< entry.path().extension() << endl;
+                    cout << "FILE SIZE : " << entry.file_size() << " BYTES" << endl;
+                }
+                else{
+                cout << "THE FOLDER NAME IS : " <<entry.path().filename() << endl;
+            }}
         }
         else if (Directory.is_regular_file())
         {
