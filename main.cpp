@@ -5,20 +5,21 @@
 #include <map>
 #include <string>
 #include <utility>
+#include <format>
+#include <algorithm>
 using namespace std;
 namespace fs = std::filesystem;
 
 // inilitiazation
 class FileInfo;
 pair<double, string> sizeconverter(long long bytesize);
-string getsizecategory(long long sizedivider,const FileInfo &currentFile);
+string getsizecategory(long long sizedivider, const FileInfo &currentFile);
 
 class FileInfo
 {
     string filename;
     string extension;
     long long size;
-   
 
 public:
     FileInfo(string f, string e, long long s) : filename(f), extension(e), size(s)
@@ -36,12 +37,15 @@ public:
     {
         return size;
     }
-    void display(long long sizedivider)
+    void display(long long sizedivider, int nameWidth)
     {
-        cout << setw(25) << left << filename;
+        // formating
+        string formatdata = format("{:.2f}{}", sizeconverter(size).first, sizeconverter(size).second);
+
+        cout << setw(nameWidth) << left << filename;
         cout << setw(15) << extension;
-        cout << setw(15)  <<right<< sizeconverter(size).first << sizeconverter(size).second;
-        cout << setw(15) << right<<getsizecategory(sizedivider, *this);
+        cout << setw(15) << right << formatdata;
+        cout << setw(15) << right << getsizecategory(sizedivider, *this);
         cout << endl;
     }
 };
@@ -72,18 +76,21 @@ pair<double, string> sizeconverter(long long bytesize)
     }
 }
 
-string getsizecategory(long long sizedivider,const FileInfo &currentFile){
-    if(currentFile.getsize()<sizedivider){
+string getsizecategory(long long sizedivider, const FileInfo &currentFile)
+{
+    if (currentFile.getsize() < sizedivider)
+    {
         return "Small";
-    }else if(currentFile.getsize()<sizedivider*2){
+    }
+    else if (currentFile.getsize() < sizedivider * 2)
+    {
         return "Medium";
     }
-    else{
+    else
+    {
         return "Large";
     }
 }
-
-
 
 int main()
 {
@@ -98,9 +105,14 @@ int main()
     if (path.compare(empty) == 0)
     {
         cout << "EMPTY PATH\n";
+        return 0;
     }
 
     // intitialization
+    int folderCounter = 0;
+    size_t FiletoDisplay = 0;
+    int maxNameLength = 0;
+    int currentLength = 0;
     long long sizeDivider;
     int SkippedEntriesEntries = 0;
     long long TotalSize = 0;
@@ -150,26 +162,31 @@ int main()
                     auto size = entry.file_size();
 
                     FileInfo file(filename, extension, size);
-                    TotalSize += file.getsize();
 
-                    
                     // large file check
-                    if (file.getsize() > MaxSize)
-                    {
-                        MaxSize = file.getsize();
-                        MaxFileName = file.getfilename();
-                    }
-  
+                    // if (file.getsize() > MaxSize)
+                    // {
+                    //     MaxSize = file.getsize();
+                    //     MaxFileName = file.getfilename();
+                    // }
+
                     storage[extension] += size;
 
                     // obj data storing
                     files.push_back(file);
-                    
                 }
 
                 else
                 {
-                    cout << "THE FOLDER AVALIBLE IN PATH: " << entry.path().filename() << endl;
+                    if (entry.is_directory())
+                    {
+                        cout << "THE FOLDER AVALIBLE IN PATH: " << entry.path().filename() << endl;
+                        folderCounter++;
+                    }
+                    else
+                    {
+                        cout << "UNIDENTFIED OBJECT: " << entry.path().filename() << endl;
+                    }
                 }
             }
             catch (const fs::filesystem_error &e)
@@ -178,9 +195,10 @@ int main()
                 SkippedEntriesEntries++;
             }
         }
-        sizeDivider = MaxSize/3;
-        if(sizeDivider==0){
-            sizeDivider=1;
+        sizeDivider = MaxSize / 3;
+        if (sizeDivider == 0)
+        {
+            sizeDivider = 1;
         }
     }
     catch (const fs::filesystem_error &e)
@@ -190,12 +208,48 @@ int main()
     }
     if (files.size() == 0)
     {
+        if (folderCounter == 0)
+        {
+            cout << "NO FOLDER IN THIS DIRECTORY\n";
+        }
+        else
+        {
+            cout << "\033[32m" << "TOTAL FOLDER IN THIS DIRECTORY : " << "\033[0m" << folderCounter << endl;
+        }
         cout << "NO REGULAR FILES IN THIS DIRECTORY\n";
         return SUCCESS;
     }
     else
     {
-        // displaying file info
+        for (const auto &Storedfile : files)
+        {
+            // maximum file length
+            currentLength = Storedfile.getfilename().length();
+            if (currentLength > maxNameLength)
+            {
+                maxNameLength = currentLength;
+            }
+            // total file size
+            TotalSize += Storedfile.getsize();
+            // max file details
+            if (Storedfile.getsize() > MaxSize)
+            {
+                MaxSize = Storedfile.getsize();
+                MaxFileName = Storedfile.getfilename();
+            }
+        }
+        // minimum width
+        if (maxNameLength < 25)
+        {
+            maxNameLength = 25;
+        }
+
+        // -----------------------displaying file info------------------------------
+
+        // formating
+        string printdatamax = format("{:.2f}{}", sizeconverter(MaxSize).first, sizeconverter(MaxSize).second);
+        string printdatatotal = format("{:.2f}{}", sizeconverter(TotalSize).first, sizeconverter(TotalSize).second);
+
         if (SkippedEntriesEntries > 0)
         {
             cout << "\033[31m";
@@ -206,24 +260,58 @@ int main()
         cout << "\nTHE FILES AVALIBE IN THE PATH :\n\n";
         cout << "\033[0m";
         cout << "THE TOTAL NO. OF FILES AVALIBE : " << files.size() << endl;
-        cout << "TOTAL SIZE : " << sizeconverter(TotalSize).first << sizeconverter(TotalSize).second << endl;
-        cout << "MAXIMUM FILE SIZE :" << sizeconverter(MaxSize).first << sizeconverter(MaxSize).second << "\nLARGE FILE NAME : " << MaxFileName << endl;
+        cout << "TOTAL SIZE : " << printdatatotal << endl;
+        cout << "MAXIMUM FILE SIZE :" << printdatamax << "\nLARGE FILE NAME : " << MaxFileName << endl;
         cout << "TOTAL EXTENSION : " << storage.size() << endl;
+        cout << "TOTAL FOLDER IN THIS DIRECTORY : " << folderCounter << endl;
         for (auto &item : storage)
         {
-            cout << setw(10) << left << item.first << " : " << sizeconverter(item.second).first << sizeconverter(item.second).second << endl;
+            string printdata = format("{:.2f}{}", sizeconverter(item.second).first, sizeconverter(item.second).second);
+            cout << setw(10) << left << item.first << " : " << printdata << endl;
         }
+
+        // -------------------top large file------------------
+        cout << "\033[34m";
+        cout << "========================\n";
+        cout << "TOP LARGE FILE \n";
+        cout << "========================\n";
+        cout << "\033[0m";
+
+        // calculating filetodisplay
+        FiletoDisplay = min(files.size(), size_t(5));
+
+        sort(files.begin(), files.end(),
+             [](const FileInfo &a, const FileInfo &b)
+             { return a.getsize() > b.getsize(); });
+        //  [] -> yeh hai lambda function new chiz sikhe hai...
+        for (size_t i = 0; i < FiletoDisplay; i++)
+        {
+            files[i].display(sizeDivider, maxNameLength);
+        }
+        cout << "\n\n";
+
+        // --------------------all file table-------------------------------
         // heading code of table
-        cout << setw(25) << left << "Name";
-        cout << setw(15) << "Extension";
-        cout << setw(15) <<right<< " Size";
-        cout << setw(18) << right << " Category";
+        cout << "\033[32m";
+        cout << "========================\n";
+        cout << "ALL FILES AVALIBLE \n";
+        cout << "========================\n";
+        cout << "\033[0m";
+        // future mai yeh hardcoded value ko dynamic bana dege
+        int extensionWidth = 15;
+        int sizeWidth = 15;
+        int categoryWidth = 18;
+        cout << setw(maxNameLength) << left << "Name";
+        cout << setw(extensionWidth) << "Extension";
+        cout << setw(sizeWidth) << right << " Size";
+        cout << setw(categoryWidth) << right << " Category";
         cout << endl;
-        cout << setfill('-') << setw(75) << "-" << endl;
+        cout << setfill('-') << setw(maxNameLength + (extensionWidth + sizeWidth + categoryWidth)) << "-" << endl;
         cout << setfill(' ');
+
         for (auto &Storedfile : files)
         {
-            Storedfile.display(sizeDivider);
+            Storedfile.display(sizeDivider, maxNameLength);
         }
         cout << "\nYOUR PATH :  " << path << endl;
     }
