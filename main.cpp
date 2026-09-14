@@ -163,13 +163,6 @@ int main()
 
                     FileInfo file(filename, extension, size);
 
-                    // large file check
-                    // if (file.getsize() > MaxSize)
-                    // {
-                    //     MaxSize = file.getsize();
-                    //     MaxFileName = file.getfilename();
-                    // }
-
                     storage[extension] += size;
 
                     // obj data storing
@@ -195,11 +188,7 @@ int main()
                 SkippedEntriesEntries++;
             }
         }
-        sizeDivider = MaxSize / 3;
-        if (sizeDivider == 0)
-        {
-            sizeDivider = 1;
-        }
+        
     }
     catch (const fs::filesystem_error &e)
     {
@@ -237,6 +226,12 @@ int main()
                 MaxSize = Storedfile.getsize();
                 MaxFileName = Storedfile.getfilename();
             }
+        }
+        // sizeDivider calculation after maxSize is calculated
+        sizeDivider = MaxSize / 3;
+        if (sizeDivider == 0)
+        {
+            sizeDivider = 1;
         }
         // minimum width
         if (maxNameLength < 25)
@@ -280,13 +275,17 @@ int main()
         // calculating filetodisplay
         FiletoDisplay = min(files.size(), size_t(5));
 
-        sort(files.begin(), files.end(),
+        // creating a copy vector--> so that the orignal scan order remains same
+        vector<FileInfo> copy_fileSorter;
+        copy_fileSorter=files;
+
+        sort(copy_fileSorter.begin(), copy_fileSorter.end(),
              [](const FileInfo &a, const FileInfo &b)
              { return a.getsize() > b.getsize(); });
         //  [] -> yeh hai lambda function new chiz sikhe hai...
         for (size_t i = 0; i < FiletoDisplay; i++)
         {
-            files[i].display(sizeDivider, maxNameLength);
+            copy_fileSorter[i].display(sizeDivider, maxNameLength);
         }
         cout << "\n\n";
 
