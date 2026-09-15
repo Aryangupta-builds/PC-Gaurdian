@@ -7,6 +7,9 @@
 #include <utility>
 #include <format>
 #include <algorithm>
+#include <thread>
+#include <chrono>
+#include <cmath>
 using namespace std;
 namespace fs = std::filesystem;
 
@@ -92,6 +95,23 @@ string getsizecategory(long long sizedivider, const FileInfo &currentFile)
     }
 }
 
+void scanner(double percentage, int Max_bar_length)
+{
+    int block = round((percentage / 100) * Max_bar_length);
+    // scaning bar
+    cout << "\r[";
+    cout << string(block, '#');
+    cout << string(Max_bar_length - block, '-');
+    cout << "] " << round(percentage) << "%";
+    cout.flush();
+    if (percentage == 100)
+    {
+        cout << "\r" << string(60, ' ') << "\r";
+    }
+    // this_thread::sleep_for(chrono::milliseconds(50));
+    //   --> yeh line program ko slow karta hai(USED FOR TESTING)
+}
+
 int main()
 {
     // startup
@@ -109,12 +129,15 @@ int main()
     }
 
     // intitialization
+    const int Max_bar_length = 40;
     int folderCounter = 0;
     size_t FiletoDisplay = 0;
+    size_t Totalentries = 0;
+    size_t processedEntrycounter = 0;
     int maxNameLength = 0;
     int currentLength = 0;
     long long sizeDivider;
-    int SkippedEntriesEntries = 0;
+    int SkippedEntries = 0;
     long long TotalSize = 0;
     long long MaxSize = 0;
     string MaxFileName;
@@ -152,6 +175,16 @@ int main()
         // DIRECTORY SCANING
         for (const auto &entry : fs::directory_iterator(path))
         {
+            Totalentries++;
+        }
+        if (Totalentries == 0)
+        {
+            cout << "Empty Dirrectory\n";
+            return 0;
+        }
+        // DIRECTORY ---------------------------------------------
+        for (const auto &entry : fs::directory_iterator(path))
+        {
             try
             {
                 if (entry.is_regular_file())
@@ -173,28 +206,37 @@ int main()
                 {
                     if (entry.is_directory())
                     {
-                        cout << "THE FOLDER AVALIBLE IN PATH: " << entry.path().filename() << endl;
+                        // cout << "THE FOLDER AVALIBLE IN PATH: " << entry.path().filename() << endl;--> yeh line problem kar raha hai
                         folderCounter++;
                     }
                     else
                     {
-                        cout << "UNIDENTFIED OBJECT: " << entry.path().filename() << endl;
+                        // cout << "UNIDENTFIED OBJECT : " << entry.path().filename() << endl;
                     }
                 }
             }
             catch (const fs::filesystem_error &e)
             {
-                cout << "Skipped entries :" << e.what() << endl;
-                SkippedEntriesEntries++;
+                // cout << "Skipped entries : " << e.what() << endl;
+                SkippedEntries++;
             }
+
+            // -------------------------scaning bar data--------------------------------------
+            processedEntrycounter++;
+            double percentage = ((double(processedEntrycounter) / double(Totalentries)) * 100);
+
+            scanner(percentage, Max_bar_length);
         }
-        
+
+        cout << "\033[32m" << "Scanning complete!\n"
+             << "\033[0m";
     }
     catch (const fs::filesystem_error &e)
     {
         cout << "FILE SYSTEM ERROR :" << e.what() << endl;
         return filesystemerror;
     }
+
     if (files.size() == 0)
     {
         if (folderCounter == 0)
@@ -245,10 +287,10 @@ int main()
         string printdatamax = format("{:.2f}{}", sizeconverter(MaxSize).first, sizeconverter(MaxSize).second);
         string printdatatotal = format("{:.2f}{}", sizeconverter(TotalSize).first, sizeconverter(TotalSize).second);
 
-        if (SkippedEntriesEntries > 0)
+        if (SkippedEntries > 0)
         {
             cout << "\033[31m";
-            cout << SkippedEntriesEntries << " ENTRIES SKIPPED DUE TO ACCESS/PERMISSION ERROR\n";
+            cout << SkippedEntries << " ENTRIES SKIPPED DUE TO ACCESS/PERMISSION ERROR\n";
             cout << "\033[0m";
         }
         cout << "\033[32m";
@@ -259,10 +301,14 @@ int main()
         cout << "MAXIMUM FILE SIZE :" << printdatamax << "\nLARGE FILE NAME : " << MaxFileName << endl;
         cout << "TOTAL EXTENSION : " << storage.size() << endl;
         cout << "TOTAL FOLDER IN THIS DIRECTORY : " << folderCounter << endl;
+
         for (auto &item : storage)
         {
-            string printdata = format("{:.2f}{}", sizeconverter(item.second).first, sizeconverter(item.second).second);
-            cout << setw(10) << left << item.first << " : " << printdata << endl;
+            string printdata = format("{:.2f}{}", sizeconverter(item.second).first, sizeconverter(item.second).second); // bytes to kb,mb,gb convert
+
+            double percentage2 = round((double(item.second) / double(TotalSize)) * 100); //-> percentage calculation
+
+            cout << setw(10) << left << item.first << " : " << printdata << " : " << percentage2 << "%" << endl;
         }
 
         // -------------------top large file------------------
@@ -277,7 +323,7 @@ int main()
 
         // creating a copy vector--> so that the orignal scan order remains same
         vector<FileInfo> copy_fileSorter;
-        copy_fileSorter=files;
+        copy_fileSorter = files;
 
         sort(copy_fileSorter.begin(), copy_fileSorter.end(),
              [](const FileInfo &a, const FileInfo &b)
@@ -300,6 +346,7 @@ int main()
         int extensionWidth = 15;
         int sizeWidth = 15;
         int categoryWidth = 18;
+
         cout << setw(maxNameLength) << left << "Name";
         cout << setw(extensionWidth) << "Extension";
         cout << setw(sizeWidth) << right << " Size";
