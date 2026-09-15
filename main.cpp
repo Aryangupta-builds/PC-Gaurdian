@@ -95,7 +95,7 @@ string getsizecategory(long long sizedivider, const FileInfo &currentFile)
     }
 }
 
-void scanner(double percentage, int Max_bar_length)
+void DynamicBar(double percentage, int Max_bar_length)
 {
     int block = round((percentage / 100) * Max_bar_length);
     // scaning bar
@@ -110,6 +110,16 @@ void scanner(double percentage, int Max_bar_length)
     }
     // this_thread::sleep_for(chrono::milliseconds(50));
     //   --> yeh line program ko slow karta hai(USED FOR TESTING)
+}
+
+void StaticBar(double percentage, int Max_bar_length)
+{
+    int block = round((percentage / 100) * Max_bar_length);
+    // static bar
+    cout << "[";
+    cout << string(block, '#');
+    cout << string(Max_bar_length - block, '-');
+    cout << "] " << setw(3) << round(percentage) << "%";
 }
 
 int main()
@@ -223,9 +233,9 @@ int main()
 
             // -------------------------scaning bar data--------------------------------------
             processedEntrycounter++;
-            double percentage = ((double(processedEntrycounter) / double(Totalentries)) * 100);
+            double DynamicBarpercentage = ((double(processedEntrycounter) / double(Totalentries)) * 100);
 
-            scanner(percentage, Max_bar_length);
+            DynamicBar(DynamicBarpercentage, Max_bar_length);
         }
 
         cout << "\033[32m" << "Scanning complete!\n"
@@ -294,7 +304,7 @@ int main()
             cout << "\033[0m";
         }
         cout << "\033[32m";
-        cout << "\nTHE FILES AVALIBE IN THE PATH :\n\n";
+        cout << "\nDATA ANALYZED FORM THIS PATH\n\n";
         cout << "\033[0m";
         cout << "THE TOTAL NO. OF FILES AVALIBE : " << files.size() << endl;
         cout << "TOTAL SIZE : " << printdatatotal << endl;
@@ -302,17 +312,44 @@ int main()
         cout << "TOTAL EXTENSION : " << storage.size() << endl;
         cout << "TOTAL FOLDER IN THIS DIRECTORY : " << folderCounter << endl;
 
+        // -------------------storage analysis---------------------
+        cout << "\033[32m";
+        cout << "========================\n";
+        cout << "STORAGE ANALYSIS \n";
+        cout << "========================\n";
+        cout << "\033[0m";
+
+        double percentage = 0;
+
         for (auto &item : storage)
         {
             string printdata = format("{:.2f}{}", sizeconverter(item.second).first, sizeconverter(item.second).second); // bytes to kb,mb,gb convert
+            if (TotalSize == 0)
+            {
+                percentage = 0;
+            }
+            else
+            {
+                percentage = round((double(item.second) / double(TotalSize)) * 100); //-> percentage calculation
+            }
 
-            double percentage2 = round((double(item.second) / double(TotalSize)) * 100); //-> percentage calculation
+            if (item.first == "")
+            {
+                cout << setw(10) << left << "No Extension";
+            }
+            else
+            {
+                cout << setw(12) << left << item.first;
+            }
 
-            cout << setw(10) << left << item.first << " : " << printdata << " : " << percentage2 << "%" << endl;
+            StaticBar(percentage, Max_bar_length);
+            cout << " : " << printdata << endl;
         }
 
+        cout << endl;
+
         // -------------------top large file------------------
-        cout << "\033[34m";
+        cout << "\033[32m";
         cout << "========================\n";
         cout << "TOP LARGE FILE \n";
         cout << "========================\n";
