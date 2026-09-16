@@ -101,6 +101,20 @@ string getsizecategory(long long sizedivider, const FileInfo &currentFile)
     }
 }
 
+string getcategory(string extension, const map<string, string> &category)
+{
+    auto result = category.find(extension);
+    if (result != category.end())
+    {
+        // ab bus category decide karna hai but how????
+        return result->second;
+    }
+    else
+    {
+        return "other";
+    }
+}
+
 void DynamicBar(double percentage, int Max_bar_length)
 {
     int block = round((percentage / 100) * Max_bar_length);
@@ -155,22 +169,86 @@ int main()
     long long TotalSize = 0;
     long long MaxSize = 0;
     string MaxFileName;
-    map<string, long long> storage;
     vector<FileInfo> files;
     const int SUCCESS = 0;
     const int filesystemerror = 1;
     const int Invalidpath = 2;
+
+    // maps-------------
+    map<string, long long> storage;
+    map<string, string> category;
+    map<string, long long> categoryStorage;
+
+    // Videos
+    category[".mp4"] = "Videos";
+    category[".mkv"] = "Videos";
+    category[".avi"] = "Videos";
+    category[".mov"] = "Videos";
+    category[".wmv"] = "Videos";
+    category[".webm"] = "Videos";
+
+    // Images
+    category[".jpg"] = "Images";
+    category[".jpeg"] = "Images";
+    category[".png"] = "Images";
+    category[".gif"] = "Images";
+    category[".bmp"] = "Images";
+    category[".webp"] = "Images";
+
+    // Audio
+    category[".mp3"] = "Audio";
+    category[".wav"] = "Audio";
+    category[".flac"] = "Audio";
+    category[".aac"] = "Audio";
+    category[".ogg"] = "Audio";
+
+    // Documents
+    category[".pdf"] = "Documents";
+    category[".txt"] = "Documents";
+    category[".doc"] = "Documents";
+    category[".docx"] = "Documents";
+    category[".xls"] = "Documents";
+    category[".xlsx"] = "Documents";
+    category[".ppt"] = "Documents";
+    category[".pptx"] = "Documents";
+
+    // Applications
+    category[".exe"] = "Applications";
+    category[".msi"] = "Applications";
+
+    // Archives
+    category[".zip"] = "Archives";
+    category[".rar"] = "Archives";
+    category[".7z"] = "Archives";
+    category[".tar"] = "Archives";
+    category[".gz"] = "Archives";
+
+    // Coding
+    category[".cpp"] = "Coding";
+    category[".h"] = "Coding";
+    category[".hpp"] = "Coding";
+    category[".c"] = "Coding";
+    category[".py"] = "Coding";
+    category[".java"] = "Coding";
+    category[".js"] = "Coding";
+    category[".ts"] = "Coding";
+    category[".html"] = "Coding";
+    category[".css"] = "Coding";
+    category[".php"] = "Coding";
+    category[".cs"] = "Coding";
+    category[".go"] = "Coding";
+    category[".rs"] = "Coding";
+
     // table width
-    int currentlocationlength = 0;
-    int maxlocationllength = 0;
+    int currentLocationLength = 0;
+    int maxLocationLength = 0;
     int maxNameLength = 0;
     int currentLength = 0;
 
     try
     {
         fs::directory_entry Directory{path};
-        fs::recursive_directory_iterator RECURSIVE{path};
-
+        fs::recursive_directory_iterator RECURSIVE{path, fs::directory_options::skip_permission_denied};
         // all checks
         if (!Directory.exists())
         {
@@ -187,15 +265,28 @@ int main()
             cout << "INVALID PATH\n";
             return Invalidpath;
         }
+        
+
+
+        // manual iterator
+        std::error_code ec;
+        fs::recursive_directory_iterator Countit(path, fs::directory_options::skip_permission_denied, ec);
+        fs::recursive_directory_iterator Scanit(path, fs::directory_options::skip_permission_denied, ec);
+        fs::recursive_directory_iterator end;
 
         cout << "\033[33m";
         cout << "ITS A FOLDER DIRECTORY" << endl;
         cout << "\033[0m";
 
         // DIRECTORY SCANING
-        for (const auto &entry : RECURSIVE)
+       while(Countit!=end)
         {
             Totalentries++;
+            Countit.increment(ec);
+            if(ec){
+                cout<<"COUNTING ITERATION ERROR :"<<ec.message()<<endl;
+                return filesystemerror;
+            }
         }
         if (Totalentries == 0)
         {
@@ -203,8 +294,10 @@ int main()
             return 0;
         }
         // DIRECTORY ---------------------------------------------
-        for (const auto &entry : fs::recursive_directory_iterator(path))
+        // for (const auto &entry : fs::recursive_directory_iterator(path, fs::directory_options::skip_permission_denied))
+        while (Scanit != end)
         {
+            const auto &entry = *Scanit;
             try
             {
                 if (entry.is_regular_file())
@@ -220,11 +313,15 @@ int main()
                     FileInfo file(filename, extension, relativefilepath.string(), size);
 
                     storage[extension] += size;
+                    string categoryName = getcategory(extension, category);
+                    categoryStorage[categoryName] += size;
+                    // cout<<"extension"<<extension<<" | category "<<categoryName<<endl;
+                    // category[extension] += getcategory(extension,category);
+                    // cout<<getcategory(extension,category);
 
                     // obj data storing
                     files.push_back(file);
                 }
-
                 else
                 {
                     if (entry.is_directory())
@@ -243,7 +340,12 @@ int main()
                 // cout << "Skipped entries : " << e.what() << endl;
                 SkippedEntries++;
             }
-
+            Scanit.increment(ec);
+            if (ec)
+            {
+                cout << "iteration failed : " << ec.message() << endl;
+                return filesystemerror;
+            }
             // -------------------------scaning bar data--------------------------------------
             processedEntrycounter++;
             double DynamicBarpercentage = ((double(processedEntrycounter) / double(Totalentries)) * 100);
@@ -323,7 +425,7 @@ int main()
 
         double percentage = 0;
 
-        for (auto &item : storage)
+        for (auto &item : categoryStorage)
         {
             string printdata = format("{:.2f}{}", sizeconverter(item.second).first, sizeconverter(item.second).second); // bytes to kb,mb,gb convert
             if (TotalSize == 0)
@@ -376,10 +478,10 @@ int main()
         {
             // maximum location length
 
-            currentlocationlength = copy_fileSorter[i].getrelativePath().length();
-            if (currentlocationlength > maxlocationllength)
+            currentLocationLength = copy_fileSorter[i].getrelativePath().length();
+            if (currentLocationLength > maxLocationLength)
             {
-                maxlocationllength = currentlocationlength;
+                maxLocationLength = currentLocationLength;
             }
 
             // maximum filename  length
@@ -394,9 +496,9 @@ int main()
         {
             maxNameLength = 25;
         }
-        if (maxlocationllength < 15)
+        if (maxLocationLength < 15)
         {
-            maxlocationllength = 15;
+            maxLocationLength = 15;
         }
         // -------heading-------
         // // future mai yeh hardcoded value ko dynamic bana dege
@@ -405,17 +507,17 @@ int main()
         int categoryWidth = 18;
 
         cout << setw(maxNameLength) << left << "Name" << "  ";
-        cout << setw(maxlocationllength) << "Location" << "  ";
+        cout << setw(maxLocationLength) << "Location" << "  ";
         cout << setw(extensionWidth) << "Extension" << "  ";
         cout << setw(sizeWidth) << right << "Size" << "  ";
         cout << setw(categoryWidth) << right << "Category" << "  ";
         cout << endl;
-        cout << setfill('-') << setw(maxNameLength + (extensionWidth + sizeWidth + categoryWidth + (maxlocationllength) + 8)) << "-" << endl; //+8 because of gaps.
+        cout << setfill('-') << setw(maxNameLength + (extensionWidth + sizeWidth + categoryWidth + (maxLocationLength) + 8)) << "-" << endl; //+8 because of gaps.
         cout << setfill(' ');
 
         for (size_t i = 0; i < FiletoDisplay; i++)
         {
-            copy_fileSorter[i].display(sizeDivider, maxNameLength, maxlocationllength);
+            copy_fileSorter[i].display(sizeDivider, maxNameLength, maxLocationLength);
         }
         cout << "\n\n";
 
