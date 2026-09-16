@@ -22,11 +22,16 @@ class FileInfo
 {
     string filename;
     string extension;
+    string relativePath;
     long long size;
 
 public:
-    FileInfo(string f, string e, long long s) : filename(f), extension(e), size(s)
+    FileInfo(string f, string e, string r, long long s) : filename(f), extension(e), relativePath(r), size(s)
     {
+    }
+    string getrelativePath() const
+    {
+        return relativePath;
     }
     string getfilename() const
     {
@@ -40,14 +45,15 @@ public:
     {
         return size;
     }
-    void display(long long sizedivider, int nameWidth)
+    void display(long long sizedivider, int nameWidth, int relativePathwidth)
     {
         // formating
         string formatdata = format("{:.2f}{}", sizeconverter(size).first, sizeconverter(size).second);
 
-        cout << setw(nameWidth) << left << filename;
-        cout << setw(15) << extension;
-        cout << setw(15) << right << formatdata;
+        cout << setw(nameWidth) << left << filename << "  ";
+        cout << setw(relativePathwidth) << relativePath << "  ";
+        cout << setw(15) << extension << "  ";
+        cout << setw(15) << right << formatdata << "  ";
         cout << setw(15) << right << getsizecategory(sizedivider, *this);
         cout << endl;
     }
@@ -119,7 +125,7 @@ void StaticBar(double percentage, int Max_bar_length)
     cout << "[";
     cout << string(block, '#');
     cout << string(Max_bar_length - block, '-');
-    cout << "] " << setw(3) << round(percentage) << "%";
+    cout << "] " << setw(3) << setprecision(6) << (percentage) << "%";
 }
 
 int main()
@@ -144,8 +150,6 @@ int main()
     size_t FiletoDisplay = 0;
     size_t Totalentries = 0;
     size_t processedEntrycounter = 0;
-    int maxNameLength = 0;
-    int currentLength = 0;
     long long sizeDivider;
     int SkippedEntries = 0;
     long long TotalSize = 0;
@@ -156,10 +160,16 @@ int main()
     const int SUCCESS = 0;
     const int filesystemerror = 1;
     const int Invalidpath = 2;
+    // table width
+    int currentlocationlength = 0;
+    int maxlocationllength = 0;
+    int maxNameLength = 0;
+    int currentLength = 0;
 
     try
     {
         fs::directory_entry Directory{path};
+        fs::recursive_directory_iterator RECURSIVE{path};
 
         // all checks
         if (!Directory.exists())
@@ -183,7 +193,7 @@ int main()
         cout << "\033[0m";
 
         // DIRECTORY SCANING
-        for (const auto &entry : fs::directory_iterator(path))
+        for (const auto &entry : RECURSIVE)
         {
             Totalentries++;
         }
@@ -193,7 +203,7 @@ int main()
             return 0;
         }
         // DIRECTORY ---------------------------------------------
-        for (const auto &entry : fs::directory_iterator(path))
+        for (const auto &entry : fs::recursive_directory_iterator(path))
         {
             try
             {
@@ -204,7 +214,10 @@ int main()
                     auto extension = entry.path().extension().string();
                     auto size = entry.file_size();
 
-                    FileInfo file(filename, extension, size);
+                    fs::path parentpath = entry.path().parent_path();
+                    fs::path relativefilepath = fs::relative(parentpath, path);
+
+                    FileInfo file(filename, extension, relativefilepath.string(), size);
 
                     storage[extension] += size;
 
@@ -264,12 +277,6 @@ int main()
     {
         for (const auto &Storedfile : files)
         {
-            // maximum file length
-            currentLength = Storedfile.getfilename().length();
-            if (currentLength > maxNameLength)
-            {
-                maxNameLength = currentLength;
-            }
             // total file size
             TotalSize += Storedfile.getsize();
             // max file details
@@ -284,11 +291,6 @@ int main()
         if (sizeDivider == 0)
         {
             sizeDivider = 1;
-        }
-        // minimum width
-        if (maxNameLength < 25)
-        {
-            maxNameLength = 25;
         }
 
         // -----------------------displaying file info------------------------------
@@ -330,7 +332,7 @@ int main()
             }
             else
             {
-                percentage = round((double(item.second) / double(TotalSize)) * 100); //-> percentage calculation
+                percentage = ((double(item.second) / double(TotalSize)) * 100); //-> percentage calculation
             }
 
             if (item.first == "")
@@ -354,7 +356,7 @@ int main()
         cout << "TOP LARGE FILE \n";
         cout << "========================\n";
         cout << "\033[0m";
-
+        // --------------------------------------------calculation--------------------------------------------
         // calculating filetodisplay
         FiletoDisplay = min(files.size(), size_t(5));
 
@@ -366,36 +368,83 @@ int main()
              [](const FileInfo &a, const FileInfo &b)
              { return a.getsize() > b.getsize(); });
         //  [] -> yeh hai lambda function new chiz sikhe hai...
+
+        // ---------------------------------------------printing-----------------------------------------------------
+
+        // setw width calulation
         for (size_t i = 0; i < FiletoDisplay; i++)
         {
-            copy_fileSorter[i].display(sizeDivider, maxNameLength);
-        }
-        cout << "\n\n";
+            // maximum location length
 
-        // --------------------all file table-------------------------------
-        // heading code of table
-        cout << "\033[32m";
-        cout << "========================\n";
-        cout << "ALL FILES AVALIBLE \n";
-        cout << "========================\n";
-        cout << "\033[0m";
-        // future mai yeh hardcoded value ko dynamic bana dege
+            currentlocationlength = copy_fileSorter[i].getrelativePath().length();
+            if (currentlocationlength > maxlocationllength)
+            {
+                maxlocationllength = currentlocationlength;
+            }
+
+            // maximum filename  length
+            currentLength = copy_fileSorter[i].getfilename().length();
+            if (currentLength > maxNameLength)
+            {
+                maxNameLength = currentLength;
+            }
+        }
+        // minimum width
+        if (maxNameLength < 25)
+        {
+            maxNameLength = 25;
+        }
+        if (maxlocationllength < 15)
+        {
+            maxlocationllength = 15;
+        }
+        // -------heading-------
+        // // future mai yeh hardcoded value ko dynamic bana dege
         int extensionWidth = 15;
         int sizeWidth = 15;
         int categoryWidth = 18;
 
-        cout << setw(maxNameLength) << left << "Name";
-        cout << setw(extensionWidth) << "Extension";
-        cout << setw(sizeWidth) << right << " Size";
-        cout << setw(categoryWidth) << right << " Category";
+        cout << setw(maxNameLength) << left << "Name" << "  ";
+        cout << setw(maxlocationllength) << "Location" << "  ";
+        cout << setw(extensionWidth) << "Extension" << "  ";
+        cout << setw(sizeWidth) << right << "Size" << "  ";
+        cout << setw(categoryWidth) << right << "Category" << "  ";
         cout << endl;
-        cout << setfill('-') << setw(maxNameLength + (extensionWidth + sizeWidth + categoryWidth)) << "-" << endl;
+        cout << setfill('-') << setw(maxNameLength + (extensionWidth + sizeWidth + categoryWidth + (maxlocationllength) + 8)) << "-" << endl; //+8 because of gaps.
         cout << setfill(' ');
 
-        for (auto &Storedfile : files)
+        for (size_t i = 0; i < FiletoDisplay; i++)
         {
-            Storedfile.display(sizeDivider, maxNameLength);
+            copy_fileSorter[i].display(sizeDivider, maxNameLength, maxlocationllength);
         }
+        cout << "\n\n";
+
+        // // --------------------all file table-------------------------------
+        // // heading code of table
+        // cout << "\033[32m";
+        // cout << "========================\n";
+        // cout << "ALL FILES AVALIBLE \n";
+        // cout << "========================\n";
+        // cout << "\033[0m";
+        // // future mai yeh hardcoded value ko dynamic bana dege
+        // int extensionWidth = 15;
+        // int locationWidth = 15;
+        // int sizeWidth = 15;
+        // int categoryWidth = 18;
+
+        // cout << setw(maxNameLength) << left << "Name";
+        // cout << setw(locationWidth) << "Location";
+        // cout << setw(extensionWidth) << "Extension";
+        // cout << setw(sizeWidth) << right << " Size";
+        // cout << setw(categoryWidth) << right << " Category";
+        // cout << endl;
+        // cout << setfill('-') << setw(maxNameLength + (extensionWidth + sizeWidth + categoryWidth+locationWidth)) << "-" << endl;
+        // cout << setfill(' ');
+
+        // for (auto &Storedfile : files)
+        // {
+        //     Storedfile.display(sizeDivider, maxNameLength);
+        // }
         cout << "\nYOUR PATH :  " << path << endl;
     }
     return SUCCESS;
