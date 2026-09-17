@@ -167,6 +167,7 @@ int main()
     }
 
     // intitialization
+    int Entries_scaned = 0;
     bool scanComplete = true;
     bool countComplete = true;
     const int Max_bar_length = 40;
@@ -379,6 +380,7 @@ int main()
                 break;
                 // return filesystemerror;
             }
+            Entries_scaned++;
             // -------------------------scaning bar data--------------------------------------
             processedEntrycounter++;
             if (countComplete)
@@ -453,13 +455,15 @@ int main()
         }
         // ---------------------------scan summary----------------------
         cout << "\033[32m";
-        cout << "==================================\n";
+        cout << "========================\n";
         cout << "SCAN SUMMARY\n";
-        cout << "==================================\n";
+        cout << "========================\n";
         cout << "\033[0m";
         cout << left;
         cout << setw(20) << "FILES FOUND       : " << files.size() << endl;
         cout << setw(20) << "FOLDER FOUND      : " << folderCounter << endl;
+        cout << setw(20) << "ENTRIES SCANNED   : " << Entries_scaned << endl;
+        cout << setw(20) << "ENTRIES SKIPPED   : " << SkippedEntries << endl;
         cout << setw(20) << "TOTAL STORAGE     : " << printdatatotal << endl;
         cout << setw(20) << "LARGEST FILE SIZE : " << printdatamax << endl;
         cout << setw(20) << "LARGE FILE NAME   : " << MaxFileName << endl;
@@ -499,8 +503,6 @@ int main()
             StaticBar(percentage, Max_bar_length);
             cout << " : " << printdata << endl;
         }
-
-        cout << endl;
 
         // -------------------top large file------------------
         cout << "\033[32m";
