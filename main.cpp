@@ -117,6 +117,14 @@ string getcategory(string extension, const map<string, string> &category)
 
 void DynamicBar(double percentage, int Max_bar_length)
 {
+    if (percentage < 0)
+    {
+        percentage = 0;
+    }
+    if (percentage > 100)
+    {
+        percentage = 100;
+    }
     int block = round((percentage / 100) * Max_bar_length);
     // scaning bar
     cout << "\r[";
@@ -159,6 +167,8 @@ int main()
     }
 
     // intitialization
+    bool scanComplete = true;
+    bool countComplete = true;
     const int Max_bar_length = 40;
     int folderCounter = 0;
     size_t FiletoDisplay = 0;
@@ -248,7 +258,9 @@ int main()
     try
     {
         fs::directory_entry Directory{path};
-        fs::recursive_directory_iterator RECURSIVE{path, fs::directory_options::skip_permission_denied};
+        // auto check
+        // fs::recursive_directory_iterator RECURSIVE{path, fs::directory_options::skip_permission_denied};
+
         // all checks
         if (!Directory.exists())
         {
@@ -265,27 +277,44 @@ int main()
             cout << "INVALID PATH\n";
             return Invalidpath;
         }
-        
-
 
         // manual iterator
-        std::error_code ec;
-        fs::recursive_directory_iterator Countit(path, fs::directory_options::skip_permission_denied, ec);
-        fs::recursive_directory_iterator Scanit(path, fs::directory_options::skip_permission_denied, ec);
+        std::error_code CountEc;
+        std::error_code ScanEc;
+        fs::recursive_directory_iterator Countit(path, fs::directory_options::skip_permission_denied, CountEc);
+        fs::recursive_directory_iterator Scanit(path, fs::directory_options::skip_permission_denied, ScanEc);
         fs::recursive_directory_iterator end;
+
+        // error code constructor exception handling
+        if (CountEc)
+        {
+            cout << "COUNT START ERROR:" << CountEc.message() << endl;
+            return filesystemerror;
+        }
+        if (ScanEc)
+        {
+            cout << "SCAN START ERROR:" << ScanEc.message() << endl;
+            return filesystemerror;
+        }
 
         cout << "\033[33m";
         cout << "ITS A FOLDER DIRECTORY" << endl;
         cout << "\033[0m";
 
         // DIRECTORY SCANING
-       while(Countit!=end)
+        while (Countit != end)
         {
             Totalentries++;
-            Countit.increment(ec);
-            if(ec){
-                cout<<"COUNTING ITERATION ERROR :"<<ec.message()<<endl;
-                return filesystemerror;
+            Countit.increment(CountEc);
+            if (CountEc)
+            {
+                cout << "COUNTING ITERATION ERROR :" << CountEc.message() << endl;
+                countComplete = false;
+                break;
+                // Countit.pop(ec);
+                // ec.clear();
+                // Countit.increment(ec);
+                // return filesystemerror;
             }
         }
         if (Totalentries == 0)
@@ -303,7 +332,7 @@ int main()
                 if (entry.is_regular_file())
                 {
 
-                    auto filename = entry.path().filename().string();
+                    auto filename = entry.path().filename().stem().string();
                     auto extension = entry.path().extension().string();
                     auto size = entry.file_size();
 
@@ -340,21 +369,36 @@ int main()
                 // cout << "Skipped entries : " << e.what() << endl;
                 SkippedEntries++;
             }
-            Scanit.increment(ec);
-            if (ec)
+            Scanit.increment(ScanEc);
+            if (ScanEc)
             {
-                cout << "iteration failed : " << ec.message() << endl;
-                return filesystemerror;
+                // Scanit.pop(ec);
+                // ec.clear();
+                cout << "Scan iteration failed : " << ScanEc.message() << endl;
+                scanComplete = false;
+                break;
+                // return filesystemerror;
             }
             // -------------------------scaning bar data--------------------------------------
             processedEntrycounter++;
-            double DynamicBarpercentage = ((double(processedEntrycounter) / double(Totalentries)) * 100);
+            if (countComplete)
+            {
+                double DynamicBarpercentage = ((double(processedEntrycounter) / double(Totalentries)) * 100);
 
-            DynamicBar(DynamicBarpercentage, Max_bar_length);
+                DynamicBar(DynamicBarpercentage, Max_bar_length);
+            }
         }
 
-        cout << "\033[32m" << "Scanning complete!\n"
-             << "\033[0m";
+        if (countComplete && scanComplete)
+        {
+            cout << "\033[32m" << "Scanning complete!\n"
+                 << "\033[0m";
+        }
+        else
+        {
+            cout << "\033[31m" << "Scanning interupted!\n"
+                 << "\033[0m";
+        }
     }
     catch (const fs::filesystem_error &e)
     {
@@ -407,14 +451,20 @@ int main()
             cout << SkippedEntries << " ENTRIES SKIPPED DUE TO ACCESS/PERMISSION ERROR\n";
             cout << "\033[0m";
         }
+        // ---------------------------scan summary----------------------
         cout << "\033[32m";
-        cout << "\nDATA ANALYZED FORM THIS PATH\n\n";
+        cout << "==================================\n";
+        cout << "SCAN SUMMARY\n";
+        cout << "==================================\n";
         cout << "\033[0m";
-        cout << "THE TOTAL NO. OF FILES AVALIBE : " << files.size() << endl;
-        cout << "TOTAL SIZE : " << printdatatotal << endl;
-        cout << "MAXIMUM FILE SIZE :" << printdatamax << "\nLARGE FILE NAME : " << MaxFileName << endl;
-        cout << "TOTAL EXTENSION : " << storage.size() << endl;
-        cout << "TOTAL FOLDER IN THIS DIRECTORY : " << folderCounter << endl;
+        cout << left;
+        cout << setw(20) << "FILES FOUND       : " << files.size() << endl;
+        cout << setw(20) << "FOLDER FOUND      : " << folderCounter << endl;
+        cout << setw(20) << "TOTAL STORAGE     : " << printdatatotal << endl;
+        cout << setw(20) << "LARGEST FILE SIZE : " << printdatamax << endl;
+        cout << setw(20) << "LARGE FILE NAME   : " << MaxFileName << endl;
+        cout << setw(20) << "TOTAL EXTENSION   : " << storage.size() << endl;
+        cout << right;
 
         // -------------------storage analysis---------------------
         cout << "\033[32m";
