@@ -287,12 +287,12 @@ void DynamicBar(int position, int Max_bar_length)
 
     // position in safe range
     position = clamp(position, 0, Max_bar_length - 1);
-    // scaning bar
-    cout << "\r[";
+    // scanning bar
+    cout << "\r";
     cout << string(position, '-');
     cout << ">";
     cout << string(Max_bar_length - position - 1, '-'); //-1 because '>' khud yek char ka space leta hai
-    cout << "] " << "Scaning...";
+    cout << " " << "Scanning...";
     cout.flush();
 
     // this_thread::sleep_for(chrono::milliseconds(50));
@@ -303,18 +303,31 @@ void StaticBar(double percentage, int Max_bar_length)
 {
     int block = round((percentage / 100) * Max_bar_length);
     // static bar
-    cout << "[";
+    cout << " ";
     cout << string(block, '#');
     cout << string(Max_bar_length - block, '-');
-    cout << "] " << setw(3) << setprecision(6) << (percentage) << "%";
+    cout << "  " << setw(3) << setprecision(6) << (percentage) << "%";
 }
 
 int main()
 {
     // startup
-    cout << "=============================" << endl;
-    cout << "      |PC GUARDIAN v1.0|     " << endl;
-    cout << "=============================" << endl;
+    // ================= HEADER =================
+    // ================= HEADER =================
+
+    cout << "============================================================\n";
+
+    cout << "                    "
+         << "\033[32m"
+         << "PC GUARDIAN"
+         << "\033[0m"
+         << " v3.0\n";
+
+    cout << "              " << "\033[36m" << "Smart File & System Health Manager\n"
+         << "\033[0m";
+
+    cout << "============================================================\n\n";
+
     cout << "ENTER DIRECTORY PATH : ";
     string path;
     getline(cin, path);
@@ -364,94 +377,111 @@ int main()
             cout << "DIRECTORY DOES NOT EXIST\n";
             return Invalidpath;
         }
+
+        // ---------------file path------------------
         if (Directory.is_regular_file())
         {
-            cout << "ITS A FILE PATH\n";
-            return Invalidpath;
+            cout << "\033[33m" << "ITS A FILE PATH\n"
+                 << "\033[0m";
+            auto filename = Directory.path().filename().stem().string();
+            auto extension = Directory.path().extension().string();
+            auto size = Directory.file_size();
+
+            // parent path
+            fs::path parentpath = Directory.path().parent_path();
+
+            FileInfo file(filename, extension, parentpath.string(), size);
+            files.push_back(file);
+            Entries_scanned = 1;
         }
-        if (!Directory.is_directory())
+        // -------------directory path-------------------
+        else if (Directory.is_directory())
+        {
+            cout << "\033[33m";
+            cout << "ITS A FOLDER DIRECTORY" << endl;
+            cout << "\033[0m";
+
+            // manual iterator
+            std::error_code ScanEc;
+            fs::recursive_directory_iterator Scanit(path, fs::directory_options::skip_permission_denied, ScanEc);
+            fs::recursive_directory_iterator end;
+
+            // error code constructor exception handling
+            if (ScanEc)
+            {
+                cout << "SCAN START ERROR:" << ScanEc.message() << endl;
+                return filesystemerror;
+            }
+
+            // ---------------------------------------RECURSIVE SCANNING ---------------------------------------------
+            while (Scanit != end)
+            {
+                const auto &entry = *Scanit;
+                try
+                {
+                    if (entry.is_regular_file())
+                    {
+
+                        auto filename = entry.path().filename().stem().string();
+                        auto extension = entry.path().extension().string();
+                        auto size = entry.file_size();
+
+                        // parent path
+                        fs::path parentpath = entry.path().parent_path();
+                        // relative path
+                        fs::path relativefilepath = fs::relative(parentpath, path);
+
+                        FileInfo file(filename, extension, relativefilepath.string(), size);
+
+                        // obj data storing
+                        files.push_back(file);
+                    }
+                    else
+                    {
+                        if (entry.is_directory())
+                        {
+                            folderCounter++;
+                        }
+                    }
+                }
+
+                catch (const fs::filesystem_error &e)
+                {
+                    SkippedEntries++;
+                }
+
+                Entries_scanned++;
+                Scanit.increment(ScanEc);
+                if (ScanEc)
+                {
+                    cout << "\r" << string(60, ' ') << "\r"; // bar remover
+                    cout << "SCAN ITERATION FAILED : " << ScanEc.message() << endl;
+                    scanComplete = false;
+                    break;
+                }
+                // -------------------------scanning bar data--------------------------------------
+
+                // bar location
+                position += direction;
+                if (position >= Max_bar_length - 1)
+                {
+                    direction = -direction;
+                }
+                else if (position < 0)
+                {
+                    direction = -direction;
+                }
+
+                if (Entries_scanned % 10 == 0)
+                {
+                    DynamicBar(position, Max_bar_length);
+                }
+            }
+        }
+        else
         {
             cout << "INVALID PATH\n";
             return Invalidpath;
-        }
-
-        // manual iterator
-        std::error_code ScanEc;
-        fs::recursive_directory_iterator Scanit(path, fs::directory_options::skip_permission_denied, ScanEc);
-        fs::recursive_directory_iterator end;
-
-        // error code constructor exception handling
-        if (ScanEc)
-        {
-            cout << "SCAN START ERROR:" << ScanEc.message() << endl;
-            return filesystemerror;
-        }
-
-        cout << "\033[33m";
-        cout << "ITS A FOLDER DIRECTORY" << endl;
-        cout << "\033[0m";
-
-        // DIRECTORY ---------------------------------------------
-        while (Scanit != end)
-        {
-            const auto &entry = *Scanit;
-            try
-            {
-                if (entry.is_regular_file())
-                {
-
-                    auto filename = entry.path().filename().stem().string();
-                    auto extension = entry.path().extension().string();
-                    auto size = entry.file_size();
-
-                    // parent path
-                    fs::path parentpath = entry.path().parent_path();
-                    // relative path
-                    fs::path relativefilepath = fs::relative(parentpath, path);
-
-                    FileInfo file(filename, extension, relativefilepath.string(), size);
-
-                    // obj data storing
-                    files.push_back(file);
-                }
-                else
-                {
-                    if (entry.is_directory())
-                    {
-                        folderCounter++;
-                    }
-                }
-            }
-            catch (const fs::filesystem_error &e)
-            {
-                SkippedEntries++;
-            }
-            Entries_scanned++;
-            Scanit.increment(ScanEc);
-            if (ScanEc)
-            {
-                cout << "\r" << string(60, ' ') << "\r"; // bar remover
-                cout << "SCAN ITERATION FAILED : " << ScanEc.message() << endl;
-                scanComplete = false;
-                break;
-            }
-            // -------------------------scaning bar data--------------------------------------
-
-            // bar location
-            position += direction;
-            if (position >= Max_bar_length - 1)
-            {
-                direction = -direction;
-            }
-            else if (position < 0)
-            {
-                direction = -direction;
-            }
-
-            if (Entries_scanned % 10 == 0)
-            {
-                DynamicBar(position, Max_bar_length);
-            }
         }
     }
     catch (const fs::filesystem_error &e)
@@ -531,10 +561,10 @@ int main()
             cout << "\033[0m";
         }
         // ---------------------------scan summary----------------------
-        cout << "\033[32m";
-        cout << "========================\n";
+        cout << "\033[36m";
+        cout << "\n";
         cout << "SCAN SUMMARY\n";
-        cout << "========================\n";
+        cout << "----------------------------------------------------------\n";
         cout << "\033[0m";
         cout << left;
         cout << setw(20) << "FILES FOUND       : " << files.size() << endl;
@@ -557,10 +587,10 @@ int main()
         cout << right;
 
         // -------------------storage analysis---------------------
-        cout << "\033[32m";
-        cout << "========================\n";
+        cout << "\033[36m";
+        cout << "\n";
         cout << "STORAGE ANALYSIS \n";
-        cout << "========================\n";
+        cout << "----------------------------------------------------------\n";
         cout << "\033[0m";
 
         for (auto &item : data_Analyzed.categoryStorage)
@@ -587,10 +617,10 @@ int main()
             }
         }
         // -------------------top large file------------------
-        cout << "\033[32m";
-        cout << "========================\n";
+        cout << "\033[36m";
+        cout << "\n";
         cout << "TOP LARGE FILE \n";
-        cout << "========================\n";
+        cout << "----------------------------------------------------------\n";
         cout << "\033[0m";
         // --------------------------------------------calculation--------------------------------------------
         // calculating filetodisplay
@@ -646,7 +676,8 @@ int main()
         cout << setw(sizeWidth) << right << "Size" << "  ";
         cout << setw(categoryWidth) << right << "Category" << "  ";
         cout << endl;
-        cout << setfill('-') << setw(maxNameLength + (extensionWidth + sizeWidth + categoryWidth + (maxLocationLength) + 8)) << "-" << endl; //+8 because of gaps.
+        cout << setfill('_') << setw(maxNameLength + (extensionWidth + sizeWidth + categoryWidth + (maxLocationLength) + 8)) << "_" << endl
+             << endl; //+8 because of gaps.
         cout << setfill(' ');
 
         for (size_t i = 0; i < FiletoDisplay; i++)
@@ -655,33 +686,7 @@ int main()
         }
         cout << "\n\n";
 
-        // // --------------------all file table-------------------------------
-        // // heading code of table
-        // cout << "\033[32m";
-        // cout << "========================\n";
-        // cout << "ALL FILES AVALIBLE \n";
-        // cout << "========================\n";
-        // cout << "\033[0m";
-        // // future mai yeh hardcoded value ko dynamic bana dege
-        // int extensionWidth = 15;
-        // int locationWidth = 15;
-        // int sizeWidth = 15;
-        // int categoryWidth = 18;
-
-        // cout << setw(maxNameLength) << left << "Name";
-        // cout << setw(locationWidth) << "Location";
-        // cout << setw(extensionWidth) << "Extension";
-        // cout << setw(sizeWidth) << right << " Size";
-        // cout << setw(categoryWidth) << right << " Category";
-        // cout << endl;
-        // cout << setfill('-') << setw(maxNameLength + (extensionWidth + sizeWidth + categoryWidth+locationWidth)) << "-" << endl;
-        // cout << setfill(' ');
-
-        // for (auto &Storedfile : files)
-        // {
-        //     Storedfile.display(sizeDivider, maxNameLength);
-        // }
-        cout << "\nYOUR PATH :  " << path << endl;
+        cout << "\nYOUR PATH :  " << "\033[32m" << path << "\033[0m" << endl;
     }
     return SUCCESS;
 }
