@@ -13,10 +13,30 @@
 using namespace std;
 namespace fs = std::filesystem;
 
-// inilitiazation
+// ================= FORWARD DECLARATIONS =================
 class FileInfo;
+struct AnalysisResult;
+// ================= FUNCTION DECLARATIONS =================
+
 pair<double, string> sizeconverter(long long bytesize);
-string getsizecategory(long long sizedivider, const FileInfo &currentFile);
+
+string getsizecategory(long long sizedivider,
+                       const FileInfo &currentFile);
+
+string getcategory(string extension,
+                   const map<string, string> &category);
+
+map<string, string> createCategoryMap();
+
+void DynamicBar(int position,
+                int Max_bar_length);
+
+void StaticBar(double percentage,
+               int Max_bar_length);
+
+AnalysisResult Analyzer(
+    const vector<FileInfo> &files,
+    const map<string, string> &category);
 
 class FileInfo
 {
@@ -64,132 +84,106 @@ pair<double, string> sizeconverter(long long bytesize)
     double kb = bytesize / 1024.0;
     double mb = kb / 1024.0;
     double gb = mb / 1024.0;
+    double tb = gb / 1024.0;
     pair<double, string> data;
-    if (bytesize < 1024 * 1024)
+    if (bytesize < 1024LL * 1024)
     {
         data.first = kb;
         data.second = "KB";
         return data;
     }
-    else if (bytesize < (1024 * 1024 * 1024))
+    else if (bytesize < (1024LL * 1024 * 1024))
     {
         data.first = mb;
         data.second = "MB";
         return data;
     }
-    else
+    else if (bytesize < (1024LL * 1024 * 1024 * 1024))
     {
         data.first = gb;
         data.second = "GB";
         return data;
     }
-}
-
-string getsizecategory(long long sizedivider, const FileInfo &currentFile)
-{
-    if (currentFile.getsize() < sizedivider)
-    {
-        return "Small";
-    }
-    else if (currentFile.getsize() < sizedivider * 2)
-    {
-        return "Medium";
-    }
     else
     {
-        return "Large";
+        data.first = tb;
+        data.second = "TB";
+        return data;
     }
 }
 
-string getcategory(string extension, const map<string, string> &category)
+struct AnalysisResult
 {
-    auto result = category.find(extension);
-    if (result != category.end())
-    {
-        // ab bus category decide karna hai but how????
-        return result->second;
-    }
-    else
-    {
-        return "other";
-    }
-}
-
-void DynamicBar(double percentage, int Max_bar_length)
-{
-    if (percentage < 0)
-    {
-        percentage = 0;
-    }
-    if (percentage > 100)
-    {
-        percentage = 100;
-    }
-    int block = round((percentage / 100) * Max_bar_length);
-    // scaning bar
-    cout << "\r[";
-    cout << string(block, '#');
-    cout << string(Max_bar_length - block, '-');
-    cout << "] " << round(percentage) << "%";
-    cout.flush();
-    if (percentage == 100)
-    {
-        cout << "\r" << string(60, ' ') << "\r";
-    }
-    // this_thread::sleep_for(chrono::milliseconds(50));
-    //   --> yeh line program ko slow karta hai(USED FOR TESTING)
-}
-
-void StaticBar(double percentage, int Max_bar_length)
-{
-    int block = round((percentage / 100) * Max_bar_length);
-    // static bar
-    cout << "[";
-    cout << string(block, '#');
-    cout << string(Max_bar_length - block, '-');
-    cout << "] " << setw(3) << setprecision(6) << (percentage) << "%";
-}
-
-int main()
-{
-    // startup
-    cout << "=============================" << endl;
-    cout << "      |PC GUARDIAN v1.0|     " << endl;
-    cout << "=============================" << endl;
-    cout << "ENTER DIRECTORY PATH : ";
-    string path;
-    getline(cin, path);
-    string empty = "";
-    if (path.compare(empty) == 0)
-    {
-        cout << "EMPTY PATH\n";
-        return 0;
-    }
-
-    // intitialization
-    int Entries_scaned = 0;
-    bool scanComplete = true;
-    bool countComplete = true;
-    const int Max_bar_length = 40;
-    int folderCounter = 0;
-    size_t FiletoDisplay = 0;
-    size_t Totalentries = 0;
-    size_t processedEntrycounter = 0;
-    long long sizeDivider;
-    int SkippedEntries = 0;
-    long long TotalSize = 0;
-    long long MaxSize = 0;
+    long long TotalSize;
+    long long MaxSize;
     string MaxFileName;
-    vector<FileInfo> files;
-    const int SUCCESS = 0;
-    const int filesystemerror = 1;
-    const int Invalidpath = 2;
 
     // maps-------------
     map<string, long long> storage;
-    map<string, string> category;
+    map<string, double> storagePercentage;
     map<string, long long> categoryStorage;
+    map<string, double> categorystoragePercentage;
+};
 
+AnalysisResult Analyzer(const vector<FileInfo> &files, const map<string, string> &category)
+{
+    AnalysisResult result;
+    result.TotalSize = 0;
+    result.MaxSize = 0;
+    result.MaxFileName.clear();
+    double percentage = 0;
+    for (const auto &Storedfile : files)
+    {
+        // total file size
+        long long currentSize = Storedfile.getsize();
+        result.TotalSize += currentSize;
+
+        // category finding
+        string extension = Storedfile.getextension();
+        string categoryName = getcategory(extension, category);
+        result.categoryStorage[categoryName] += currentSize;
+
+        // extension wise storage
+        result.storage[Storedfile.getextension()] += currentSize;
+
+        // max file details
+        if (currentSize > result.MaxSize)
+        {
+            result.MaxSize = currentSize;
+            result.MaxFileName = Storedfile.getfilename();
+        }
+    }
+    for (auto &item : result.categoryStorage)
+    {
+        if (result.TotalSize == 0)
+        {
+            percentage = 0;
+        }
+        else
+        {
+            percentage = ((double(item.second) / double(result.TotalSize)) * 100); //-> percentage calculation
+        }
+        result.categorystoragePercentage[item.first] = percentage;
+    }
+
+    // category percentage total 100% check
+    double totalcategorypercentage = 0;
+    for (const auto &item : result.categorystoragePercentage)
+    {
+        totalcategorypercentage += item.second;
+    }
+    if (result.TotalSize != 0 && abs(totalcategorypercentage - 100) > 0.01)
+    {
+        cout << "CATEGORY PERCENTAGE FAILED\n";
+    }
+    return result;
+}
+
+map<string, string> createCategoryMap()
+{
+    map<string, string> category;
+
+    //---------------------HARDCODED CATEGORY-----------------------
     // Videos
     category[".mp4"] = "Videos";
     category[".mkv"] = "Videos";
@@ -250,6 +244,106 @@ int main()
     category[".go"] = "Coding";
     category[".rs"] = "Coding";
 
+    return category;
+}
+
+string getsizecategory(long long sizedivider, const FileInfo &currentFile)
+{
+    if (currentFile.getsize() < sizedivider)
+    {
+        return "Small";
+    }
+    else if (currentFile.getsize() < sizedivider * 2LL)
+    {
+        return "Medium";
+    }
+    else
+    {
+        return "Large";
+    }
+}
+
+string getcategory(string extension, const map<string, string> &category)
+{
+    // file extension ke basis par uski category return karta hai
+    auto result = category.find(extension);
+    if (result != category.end())
+    {
+        return result->second;
+    }
+    else
+    {
+        return "other";
+    }
+}
+
+void DynamicBar(int position, int Max_bar_length)
+{
+    // max_bar_lenght less then 0
+    if (Max_bar_length <= 0)
+    {
+        return;
+    }
+
+    // position in safe range
+    position = clamp(position, 0, Max_bar_length - 1);
+    // scaning bar
+    cout << "\r[";
+    cout << string(position, '-');
+    cout << ">";
+    cout << string(Max_bar_length - position - 1, '-'); //-1 because '>' khud yek char ka space leta hai
+    cout << "] " << "Scaning...";
+    cout.flush();
+
+    // this_thread::sleep_for(chrono::milliseconds(50));
+    //   --> yeh line program ko slow karta hai(USED FOR TESTING)
+}
+
+void StaticBar(double percentage, int Max_bar_length)
+{
+    int block = round((percentage / 100) * Max_bar_length);
+    // static bar
+    cout << "[";
+    cout << string(block, '#');
+    cout << string(Max_bar_length - block, '-');
+    cout << "] " << setw(3) << setprecision(6) << (percentage) << "%";
+}
+
+int main()
+{
+    // startup
+    cout << "=============================" << endl;
+    cout << "      |PC GUARDIAN v1.0|     " << endl;
+    cout << "=============================" << endl;
+    cout << "ENTER DIRECTORY PATH : ";
+    string path;
+    getline(cin, path);
+    string empty = "";
+    if (path.compare(empty) == 0)
+    {
+        cout << "EMPTY PATH\n";
+        return 0;
+    }
+
+    // intitialization
+    int position = 0;
+    int direction = 1;
+    string scanstatus;
+    int Entries_scanned = 0;
+    bool scanComplete = true;
+    const int Max_bar_length = 40;
+    int folderCounter = 0;
+    size_t FiletoDisplay = 0;
+    long long sizeDivider;
+    int SkippedEntries = 0;
+    vector<FileInfo> files;
+    const int SUCCESS = 0;
+    const int filesystemerror = 1;
+    const int Invalidpath = 2;
+
+    // // maps-------------
+    map<string, string> category = createCategoryMap();
+
     // table width
     int currentLocationLength = 0;
     int maxLocationLength = 0;
@@ -258,11 +352,13 @@ int main()
 
     try
     {
-        fs::directory_entry Directory{path};
-        // auto check
-        // fs::recursive_directory_iterator RECURSIVE{path, fs::directory_options::skip_permission_denied};
 
-        // all checks
+        // ###########################################
+        //                  SCANNER
+        // ###########################################
+        fs::directory_entry Directory{path};
+
+        // ---------------------PATH VALIDATION-------------------------
         if (!Directory.exists())
         {
             cout << "DIRECTORY DOES NOT EXIST\n";
@@ -280,18 +376,11 @@ int main()
         }
 
         // manual iterator
-        std::error_code CountEc;
         std::error_code ScanEc;
-        fs::recursive_directory_iterator Countit(path, fs::directory_options::skip_permission_denied, CountEc);
         fs::recursive_directory_iterator Scanit(path, fs::directory_options::skip_permission_denied, ScanEc);
         fs::recursive_directory_iterator end;
 
         // error code constructor exception handling
-        if (CountEc)
-        {
-            cout << "COUNT START ERROR:" << CountEc.message() << endl;
-            return filesystemerror;
-        }
         if (ScanEc)
         {
             cout << "SCAN START ERROR:" << ScanEc.message() << endl;
@@ -302,29 +391,7 @@ int main()
         cout << "ITS A FOLDER DIRECTORY" << endl;
         cout << "\033[0m";
 
-        // DIRECTORY SCANING
-        while (Countit != end)
-        {
-            Totalentries++;
-            Countit.increment(CountEc);
-            if (CountEc)
-            {
-                cout << "COUNTING ITERATION ERROR :" << CountEc.message() << endl;
-                countComplete = false;
-                break;
-                // Countit.pop(ec);
-                // ec.clear();
-                // Countit.increment(ec);
-                // return filesystemerror;
-            }
-        }
-        if (Totalentries == 0)
-        {
-            cout << "Empty Dirrectory\n";
-            return 0;
-        }
         // DIRECTORY ---------------------------------------------
-        // for (const auto &entry : fs::recursive_directory_iterator(path, fs::directory_options::skip_permission_denied))
         while (Scanit != end)
         {
             const auto &entry = *Scanit;
@@ -337,17 +404,12 @@ int main()
                     auto extension = entry.path().extension().string();
                     auto size = entry.file_size();
 
+                    // parent path
                     fs::path parentpath = entry.path().parent_path();
+                    // relative path
                     fs::path relativefilepath = fs::relative(parentpath, path);
 
                     FileInfo file(filename, extension, relativefilepath.string(), size);
-
-                    storage[extension] += size;
-                    string categoryName = getcategory(extension, category);
-                    categoryStorage[categoryName] += size;
-                    // cout<<"extension"<<extension<<" | category "<<categoryName<<endl;
-                    // category[extension] += getcategory(extension,category);
-                    // cout<<getcategory(extension,category);
 
                     // obj data storing
                     files.push_back(file);
@@ -356,50 +418,40 @@ int main()
                 {
                     if (entry.is_directory())
                     {
-                        // cout << "THE FOLDER AVALIBLE IN PATH: " << entry.path().filename() << endl;--> yeh line problem kar raha hai
                         folderCounter++;
-                    }
-                    else
-                    {
-                        // cout << "UNIDENTFIED OBJECT : " << entry.path().filename() << endl;
                     }
                 }
             }
             catch (const fs::filesystem_error &e)
             {
-                // cout << "Skipped entries : " << e.what() << endl;
                 SkippedEntries++;
             }
+            Entries_scanned++;
             Scanit.increment(ScanEc);
             if (ScanEc)
             {
-                // Scanit.pop(ec);
-                // ec.clear();
-                cout << "Scan iteration failed : " << ScanEc.message() << endl;
+                cout << "\r" << string(60, ' ') << "\r"; // bar remover
+                cout << "SCAN ITERATION FAILED : " << ScanEc.message() << endl;
                 scanComplete = false;
                 break;
-                // return filesystemerror;
             }
-            Entries_scaned++;
             // -------------------------scaning bar data--------------------------------------
-            processedEntrycounter++;
-            if (countComplete)
+
+            // bar location
+            position += direction;
+            if (position >= Max_bar_length - 1)
             {
-                double DynamicBarpercentage = ((double(processedEntrycounter) / double(Totalentries)) * 100);
-
-                DynamicBar(DynamicBarpercentage, Max_bar_length);
+                direction = -direction;
             }
-        }
+            else if (position < 0)
+            {
+                direction = -direction;
+            }
 
-        if (countComplete && scanComplete)
-        {
-            cout << "\033[32m" << "Scanning complete!\n"
-                 << "\033[0m";
-        }
-        else
-        {
-            cout << "\033[31m" << "Scanning interupted!\n"
-                 << "\033[0m";
+            if (Entries_scanned % 10 == 0)
+            {
+                DynamicBar(position, Max_bar_length);
+            }
         }
     }
     catch (const fs::filesystem_error &e)
@@ -408,6 +460,32 @@ int main()
         return filesystemerror;
     }
 
+    cout << "\r" << string(60, ' ') << "\r"; // bar remover
+    if (scanComplete && SkippedEntries == 0)
+    {
+        cout << "\033[32m" << "Scanning complete!\n"
+             << "\033[0m";
+        scanstatus = "VALID";
+    }
+    else
+    {
+        cout << "\033[31m" << "Scanning interrupted!\n"
+             << "\033[0m";
+        scanstatus = "INVALID";
+    }
+    // #######################################
+    //             SCANNER END
+    // #######################################
+
+    // ======================================
+    //              ANALYZER
+    // ======================================
+
+    if (Entries_scanned == 0)
+    {
+        cout << "Empty Directory\n";
+        return SUCCESS;
+    }
     if (files.size() == 0)
     {
         if (folderCounter == 0)
@@ -423,29 +501,28 @@ int main()
     }
     else
     {
-        for (const auto &Storedfile : files)
-        {
-            // total file size
-            TotalSize += Storedfile.getsize();
-            // max file details
-            if (Storedfile.getsize() > MaxSize)
-            {
-                MaxSize = Storedfile.getsize();
-                MaxFileName = Storedfile.getfilename();
-            }
-        }
+        AnalysisResult data_Analyzed = Analyzer(files, category);
+
         // sizeDivider calculation after maxSize is calculated
-        sizeDivider = MaxSize / 3;
+        sizeDivider = data_Analyzed.MaxSize / 3;
         if (sizeDivider == 0)
         {
             sizeDivider = 1;
         }
 
+        // ======================================
+        //              ANALYZER END
+        // ======================================
+
+        // ______________________________________
+        //              REPORTING
+        // ______________________________________
+
         // -----------------------displaying file info------------------------------
 
         // formating
-        string printdatamax = format("{:.2f}{}", sizeconverter(MaxSize).first, sizeconverter(MaxSize).second);
-        string printdatatotal = format("{:.2f}{}", sizeconverter(TotalSize).first, sizeconverter(TotalSize).second);
+        string printdatamax = format("{:.2f}{}", sizeconverter(data_Analyzed.MaxSize).first, sizeconverter(data_Analyzed.MaxSize).second);
+        string printdatatotal = format("{:.2f}{}", sizeconverter(data_Analyzed.TotalSize).first, sizeconverter(data_Analyzed.TotalSize).second);
 
         if (SkippedEntries > 0)
         {
@@ -462,12 +539,21 @@ int main()
         cout << left;
         cout << setw(20) << "FILES FOUND       : " << files.size() << endl;
         cout << setw(20) << "FOLDER FOUND      : " << folderCounter << endl;
-        cout << setw(20) << "ENTRIES SCANNED   : " << Entries_scaned << endl;
+        cout << setw(20) << "ENTRIES SCANNED   : " << Entries_scanned << endl;
         cout << setw(20) << "ENTRIES SKIPPED   : " << SkippedEntries << endl;
         cout << setw(20) << "TOTAL STORAGE     : " << printdatatotal << endl;
         cout << setw(20) << "LARGEST FILE SIZE : " << printdatamax << endl;
-        cout << setw(20) << "LARGE FILE NAME   : " << MaxFileName << endl;
-        cout << setw(20) << "TOTAL EXTENSION   : " << storage.size() << endl;
+        cout << setw(20) << "LARGE FILE NAME   : " << data_Analyzed.MaxFileName << endl;
+        cout << setw(20) << "TOTAL EXTENSION   : " << data_Analyzed.storage.size() << endl;
+        cout << setw(20) << "SCAN STATUS       : ";
+        if (scanstatus == "VALID")
+        {
+            cout << "\033[32m" << scanstatus << "\033[0m" << endl;
+        }
+        else
+        {
+            cout << "\033[31m" << scanstatus << "\033[0m" << endl;
+        }
         cout << right;
 
         // -------------------storage analysis---------------------
@@ -477,33 +563,29 @@ int main()
         cout << "========================\n";
         cout << "\033[0m";
 
-        double percentage = 0;
-
-        for (auto &item : categoryStorage)
+        for (auto &item : data_Analyzed.categoryStorage)
         {
-            string printdata = format("{:.2f}{}", sizeconverter(item.second).first, sizeconverter(item.second).second); // bytes to kb,mb,gb convert
-            if (TotalSize == 0)
+            string printdata = format("{:.2f}{}",
+                                      sizeconverter(item.second).first,
+                                      sizeconverter(item.second).second); // bytes to kb,mb,gb convert
+
+            // safe percentage lookup using the same extension key
+            auto percentageIt = data_Analyzed.categorystoragePercentage.find(item.first);
+
+            if (percentageIt != data_Analyzed.categorystoragePercentage.end())
             {
-                percentage = 0;
+                double percentage = percentageIt->second;
+
+                cout << setw(15) << left << item.first;
+
+                StaticBar(percentage, Max_bar_length);
+                cout << " : " << printdata << endl;
             }
             else
             {
-                percentage = ((double(item.second) / double(TotalSize)) * 100); //-> percentage calculation
+                cout << "CATEGORY PERCENTAGE DATA NOT FOUND FOR : " << item.first << endl;
             }
-
-            if (item.first == "")
-            {
-                cout << setw(10) << left << "No Extension";
-            }
-            else
-            {
-                cout << setw(12) << left << item.first;
-            }
-
-            StaticBar(percentage, Max_bar_length);
-            cout << " : " << printdata << endl;
         }
-
         // -------------------top large file------------------
         cout << "\033[32m";
         cout << "========================\n";
