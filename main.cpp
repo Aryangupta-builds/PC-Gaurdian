@@ -23,7 +23,7 @@ pair<double, string> sizeconverter(long long bytesize);
 string getsizecategory(long long sizedivider,
                        const FileInfo &currentFile);
 
-string getcategory(string extension,
+string getcategory(const string &extension,
                    const map<string, string> &category);
 
 map<string, string> createCategoryMap();
@@ -68,7 +68,7 @@ public:
     void display(long long sizedivider, int nameWidth, int relativePathwidth) const
     {
         // formating
-        string formatdata = format("{:.2f}{}", sizeconverter(size).first, sizeconverter(size).second);
+        string formatdata = format("{:.2f} {}", sizeconverter(size).first, sizeconverter(size).second);
 
         cout << setw(nameWidth) << left << filename << "  ";
         cout << setw(relativePathwidth) << relativePath << "  ";
@@ -123,13 +123,13 @@ void reportFile(const FileInfo &file, const map<string, string> &category)
     cout << "----------------------------------------------------------\n";
     cout << "\033[0m";
     cout << left;
-    cout << setw(20) << "NAME         : " << filename << endl;
-    cout << setw(20) << "LOCATION     : " << relativepath << endl;
-    cout << setw(20) << "EXTENSION    : " << extension << endl;
-    cout << setw(20) << "SIZE         : " << readable.first << readable.second << endl;
-    cout << setw(20) << "CATEGORY     : " << categoryname << endl;
-    cout << setw(20) << "SIZE TYPE    : " << getSingleFileSizeCategory(size) << endl;
-    cout << setw(20) << "SCAN STATUS  : " << "\033[32m" << "VALID" << "\033[0m"<<endl;
+    cout << setw(20) << "NAME         : " << filename << "\n";
+    cout << setw(20) << "LOCATION     : " << relativepath << "\n";
+    cout << setw(20) << "EXTENSION    : " << extension << "\n";
+    cout << setw(20) << "SIZE         : " << readable.first << " " << readable.second << "\n";
+    cout << setw(20) << "CATEGORY     : " << categoryname << "\n";
+    cout << setw(20) << "SIZE TYPE    : " << getSingleFileSizeCategory(size) << "\n";
+    cout << setw(20) << "SCAN STATUS  : " << "\033[32m" << "VALID" << "\033[0m" << "\n";
 }
 pair<double, string> sizeconverter(long long bytesize)
 {
@@ -288,11 +288,12 @@ map<string, string> createCategoryMap()
 
 string getsizecategory(long long sizedivider, const FileInfo &currentFile)
 {
-    if (currentFile.getsize() < sizedivider)
+    long long size = currentFile.getsize();
+    if (size < sizedivider)
     {
         return "Small";
     }
-    else if (currentFile.getsize() < sizedivider * 2LL)
+    else if (size < sizedivider * 2LL)
     {
         return "Medium";
     }
@@ -302,7 +303,7 @@ string getsizecategory(long long sizedivider, const FileInfo &currentFile)
     }
 }
 
-string getcategory(string extension, const map<string, string> &category)
+string getcategory(const string &extension, const map<string, string> &category)
 {
     // file extension ke basis par uski category return karta hai
     auto result = category.find(extension);
@@ -340,26 +341,25 @@ void DynamicBar(int position, int Max_bar_length)
 
 void StaticBar(double percentage, int Max_bar_length)
 {
-     // max_bar_lenght less then 0
+    // max_bar_lenght less then 0
     if (Max_bar_length <= 0)
     {
         return;
     }
 
     // percentage safe range
-    percentage = clamp(percentage,0.0,100.0);
+    percentage = clamp(percentage, 0.0, 100.0);
 
     int block = round((percentage / 100) * Max_bar_length);
 
     // block safe range
-    block = clamp(block,0,Max_bar_length);
-
+    block = clamp(block, 0, Max_bar_length);
 
     // static bar
     cout << " ";
     cout << string(block, '#');
     cout << string(Max_bar_length - block, '-');
-    cout << "  " << setw(3) << setprecision(6) << (percentage) << "%";
+    cout << "  " << setw(5) << fixed << setprecision(2) << (percentage) << "%";
 }
 
 int main()
@@ -382,8 +382,8 @@ int main()
     cout << "ENTER DIRECTORY PATH : ";
     string path;
     getline(cin, path);
-    string empty = "";
-    if (path.compare(empty) == 0)
+
+    if (path.empty())
     {
         cout << "EMPTY PATH\n";
         return 0;
@@ -393,7 +393,7 @@ int main()
     int position = 0;
     int direction = 1;
     string scanstatus;
-    int Entries_scanned = 0;
+    int EntriesVisited = 0;
     const int Max_bar_length = 40;
     int folderCounter = 0;
     size_t FiletoDisplay = 0;
@@ -433,7 +433,7 @@ int main()
         // ---------------file path------------------
         if (Directory.is_regular_file())
         {
-            cout << "\033[33m" << "ITS A FILE PATH\n"
+            cout << "\033[33m" << "FILE PATH DETECTED\n"
                  << "\033[0m";
             auto filename = Directory.path().filename().stem().string();
             auto extension = Directory.path().extension().string();
@@ -444,14 +444,14 @@ int main()
 
             FileInfo file(filename, extension, parentpath.string(), size);
             files.push_back(file);
-            Entries_scanned = 1;
+            EntriesVisited = 1;
             isFile = true;
         }
         // -------------directory path-------------------
         else if (Directory.is_directory())
         {
             cout << "\033[33m";
-            cout << "ITS A FOLDER DIRECTORY" << endl;
+            cout << "DIRECTORY DETECTED" << endl;
             cout << "\033[0m";
 
             // manual iterator
@@ -503,7 +503,7 @@ int main()
                     SkippedEntries++;
                 }
 
-                Entries_scanned++;
+                EntriesVisited++;
                 Scanit.increment(ScanEc);
                 if (ScanEc)
                 {
@@ -525,7 +525,7 @@ int main()
                     direction = -direction;
                 }
 
-                if (Entries_scanned % 10 == 0)
+                if (EntriesVisited % 10 == 0)
                 {
                     DynamicBar(position, Max_bar_length);
                 }
@@ -564,7 +564,7 @@ int main()
     //              ANALYZER
     // ======================================
 
-    if (Entries_scanned == 0)
+    if (EntriesVisited == 0)
     {
         cout << "Empty Directory\n";
         return SUCCESS;
@@ -587,30 +587,30 @@ int main()
         // ______________________________________
         //      FILE/DIRECTORY  REPORTING
         // ______________________________________
-        
+
         // -----------------------displaying single file info------------------------------
-        
+
         if (isFile)
         {
             reportFile(files[0], category);
         }
         else
         {
-            
-                AnalysisResult data_Analyzed = Analyzer(files, category);
-    
-                // sizeDivider calculation after maxSize is calculated
-                sizeDivider = data_Analyzed.MaxSize / 3;
-                if (sizeDivider == 0)
-                {
-                    sizeDivider = 1;
-                }
+
+            AnalysisResult analysis = Analyzer(files, category);
+
+            // sizeDivider calculation after maxSize is calculated
+            sizeDivider = analysis.MaxSize / 3;
+            if (sizeDivider == 0)
+            {
+                sizeDivider = 1;
+            }
 
             // -----------------------displaying directory file info------------------------------
 
             // formating
-            string printdatamax = format("{:.2f}{}", sizeconverter(data_Analyzed.MaxSize).first, sizeconverter(data_Analyzed.MaxSize).second);
-            string printdatatotal = format("{:.2f}{}", sizeconverter(data_Analyzed.TotalSize).first, sizeconverter(data_Analyzed.TotalSize).second);
+            string printdatamax = format("{:.2f} {}", sizeconverter(analysis.MaxSize).first, sizeconverter(analysis.MaxSize).second);
+            string printdatatotal = format("{:.2f} {}", sizeconverter(analysis.TotalSize).first, sizeconverter(analysis.TotalSize).second);
 
             if (SkippedEntries > 0)
             {
@@ -627,12 +627,12 @@ int main()
             cout << left;
             cout << setw(20) << "FILES FOUND       : " << files.size() << endl;
             cout << setw(20) << "FOLDER FOUND      : " << folderCounter << endl;
-            cout << setw(20) << "ENTRIES SCANNED   : " << Entries_scanned << endl;
+            cout << setw(20) << "ENTRIES SCANNED   : " << EntriesVisited << endl;
             cout << setw(20) << "ENTRIES SKIPPED   : " << SkippedEntries << endl;
             cout << setw(20) << "TOTAL STORAGE     : " << printdatatotal << endl;
             cout << setw(20) << "LARGEST FILE SIZE : " << printdatamax << endl;
-            cout << setw(20) << "LARGE FILE NAME   : " << data_Analyzed.MaxFileName << endl;
-            cout << setw(20) << "TOTAL EXTENSION   : " << data_Analyzed.storage.size() << endl;
+            cout << setw(20) << "LARGE FILE NAME   : " << analysis.MaxFileName << endl;
+            cout << setw(20) << "TOTAL EXTENSION   : " << analysis.storage.size() << endl;
             cout << setw(20) << "SCAN STATUS       : ";
             if (scanstatus == "VALID")
             {
@@ -651,16 +651,16 @@ int main()
             cout << "----------------------------------------------------------\n";
             cout << "\033[0m";
 
-            for (auto &item : data_Analyzed.categoryStorage)
+            for (const auto &item : analysis.categoryStorage)
             {
-                string printdata = format("{:.2f}{}",
+                string printdata = format("{:.2f} {}",
                                           sizeconverter(item.second).first,
                                           sizeconverter(item.second).second); // bytes to kb,mb,gb convert
 
                 // safe percentage lookup using the same extension key
-                auto percentageIt = data_Analyzed.categorystoragePercentage.find(item.first);
+                auto percentageIt = analysis.categorystoragePercentage.find(item.first);
 
-                if (percentageIt != data_Analyzed.categorystoragePercentage.end())
+                if (percentageIt != analysis.categorystoragePercentage.end())
                 {
                     double percentage = percentageIt->second;
 
@@ -674,10 +674,10 @@ int main()
                     cout << "CATEGORY PERCENTAGE DATA NOT FOUND FOR : " << item.first << endl;
                 }
             }
-            // -------------------top large file------------------
+            // ------------------- largest file------------------
             cout << "\033[36m";
             cout << "\n";
-            cout << "TOP LARGE FILE \n";
+            cout << "LARGEST FILE\n";
             cout << "----------------------------------------------------------\n";
             cout << "\033[0m";
             // --------------------------------------------calculation--------------------------------------------
